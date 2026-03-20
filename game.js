@@ -34,7 +34,7 @@
     { level: 2, distanceToBoss: 3900, scrollSpeed: 410, enemySpeed: 280, spawnEvery: 0.54, enemyHp: 22, enemyDmg: 15, bulletPower: 9, boss: { hp: 2100, shield: 1200, speed: 102, fireEvery: 0.84, bulletSpeed: 350, crashDmg: 28, pattern: "tracking" } },
     { level: 3, distanceToBoss: 4600, scrollSpeed: 470, enemySpeed: 330, spawnEvery: 0.45, enemyHp: 30, enemyDmg: 18, bulletPower: 10, boss: { hp: 2800, shield: 1650, speed: 120, fireEvery: 0.9, bulletSpeed: 420, crashDmg: 34, pattern: "column" } },
     { level: 4, distanceToBoss: 5300, scrollSpeed: 520, enemySpeed: 370, spawnEvery: 0.38, enemyHp: 38, enemyDmg: 22, bulletPower: 12, boss: { hp: 9200, shield: 7600, speed: 146, fireEvery: 0.58, bulletSpeed: 540, crashDmg: 52, pattern: "scatterburst" } },
-    { level: 5, distanceToBoss: 6100, scrollSpeed: 575, enemySpeed: 410, spawnEvery: 0.32, enemyHp: 46, enemyDmg: 27, bulletPower: 14, boss: { hp: 18800, shield: 16400, speed: 172, fireEvery: 0.48, bulletSpeed: 620, crashDmg: 62, pattern: "hybrid" } }
+    { level: 5, distanceToBoss: 6100, scrollSpeed: 575, enemySpeed: 410, spawnEvery: 0.32, enemyHp: 46, enemyDmg: 27, bulletPower: 14, boss: { hp: 99999, shield: 40000, speed: 172, fireEvery: 0.48, bulletSpeed: 620, crashDmg: 62, pattern: "hybrid" } }
   ];
 
   const BOSS_PROFILES = [
@@ -47,8 +47,8 @@
 
   const WEAPONS = {
     mg: { id: "mg", name: "速射机枪", desc: "高射速，稳定压制。", fireInterval: 0.11, baseDamage: 9, bulletSpeed: 780, spread: 0.05, skillName: "弹幕风暴", skillDesc: "5秒内射速+50%，并清除敌方子弹", skillCooldown: 9.5 },
-    laser: { id: "laser", name: "激光炮", desc: "高伤能束，破盾特化。", fireInterval: 0.19, baseDamage: 62, bulletSpeed: 960, spread: 0.01, skillName: "贯穿天光", skillDesc: "发射巨型贯穿光束并造成重创", skillCooldown: 10.8 },
-    ray: { id: "ray", name: "镭射枪", desc: "中频精准射线。", fireInterval: 0.16, baseDamage: 16, bulletSpeed: 860, spread: 0.018, skillName: "电弧锁链", skillDesc: "对全屏敌人施加连锁电弧", skillCooldown: 9.8 }
+    laser: { id: "laser", name: "激光炮", desc: "高伤能束，破盾特化。", fireInterval: 0.19, baseDamage: 60, bulletSpeed: 960, spread: 0.01, skillName: "贯穿天光", skillDesc: "发射巨型贯穿光束并造成重创", skillCooldown: 10.8 },
+    ray: { id: "ray", name: "镭射枪", desc: "中频精准射线。", fireInterval: 0.16, baseDamage: 14, bulletSpeed: 860, spread: 0.018, skillName: "电弧锁链", skillDesc: "对全屏敌人施加连锁电弧", skillCooldown: 9.8 }
   };
 
   const CHOICE_STATS = [
@@ -71,7 +71,7 @@
     shake: 0, shakeX: 0, shakeY: 0,
     camX: 0, camY: 0, camWave: 0,
     bossAlertTimer: 0, bossIntroTimer: 0,
-    stars: [], enemies: [], bullets: [], enemyBullets: [], enemyLasers: [], particles: [], statGates: [], rayChains: [],
+    stars: [], enemies: [], bullets: [], enemyBullets: [], enemyLasers: [], bombZones: [], particles: [], statGates: [], rayChains: [],
     statGateSpawned: [false, false, false],
     eliteSpawned: false,
     boss: null, bossDefeated: false,
@@ -133,6 +133,7 @@
     state.bullets.length = 0;
     state.enemyBullets.length = 0;
     state.enemyLasers.length = 0;
+    state.bombZones.length = 0;
     state.particles.length = 0;
     state.rayChains.length = 0;
     state.statGates.length = 0;
@@ -362,6 +363,7 @@
       if (b.ultimateEnraged) {
         const spin = b.shotStep * 0.28;
         for (let i = 0; i < 6; i++) addEnemyBulletAngle(b.x, b.y + 34, spin + (Math.PI * 2 * i) / 6, b.bulletSpeed * 0.92, b.bulletDmg * 0.9);
+        if (b.shotStep % 8 === 0) spawnBombZones(2, b.bulletDmg * 2.8);
         if (b.shotStep % 2 === 0) {
           const pool = ["spread", "tracking", "column", "scatterburst"];
           const copy = pool[Math.floor(Math.random() * pool.length)];
@@ -409,6 +411,24 @@
         active: 0.35,
         width: 18,
         dmg: dmg
+      });
+    }
+  }
+
+  function spawnBombZones(count, dmg) {
+    const minY = state.height * 0.6;
+    const maxY = state.height * 0.9;
+    for (let i = 0; i < count; i++) {
+      const y = randomRange(minY, maxY);
+      const x = randomRange(laneLeftAtY(y) + 26, laneRightAtY(y) - 26);
+      state.bombZones.push({
+        x: x,
+        y: y,
+        radius: randomRange(68, 92),
+        warn: 0.95,
+        active: 0.22,
+        dmg: dmg,
+        hit: false
       });
     }
   }
@@ -559,6 +579,25 @@
         }
       }
       if (l.warn <= 0 && l.active <= 0) state.enemyLasers.splice(i, 1);
+    }
+
+    for (let i = state.bombZones.length - 1; i >= 0; i--) {
+      const z = state.bombZones[i];
+      if (z.warn > 0) {
+        z.warn -= dt;
+      } else {
+        z.active -= dt;
+        if (!z.hit && z.active > 0) {
+          const d = Math.hypot(state.player.x - z.x, state.player.y - z.y);
+          if (d <= z.radius + state.player.radius) {
+            z.hit = true;
+            applyPlayerDamage(z.dmg, "#ff6f6f");
+            triggerShake(14);
+            pulseEdgeGlow("#ff6f6f", 0.65);
+          }
+        }
+      }
+      if (z.warn <= 0 && z.active <= 0) state.bombZones.splice(i, 1);
     }
 
     for (let i = state.statGates.length - 1; i >= 0; i--) {
@@ -796,7 +835,7 @@
     state.skillTimer = w.skillCooldown;
     updateSkillUi();
     triggerShake(14);
-    state.shieldTimer = 2.8;
+    state.shieldTimer = 2;
     state.shockwaveActive = true;
     state.shockwaveRadius = 20;
     state.shockwaveLast = 20;
@@ -895,31 +934,68 @@
     }
   }
 
-  function applyEliteDropReward() {
-    const rarity = Math.random() < 0.72 ? "purple" : "gold";
+  function makeEliteDropOption(rarity) {
     const stat = CHOICE_STATS[Math.floor(Math.random() * CHOICE_STATS.length)].key;
+    const isGold = rarity === "gold";
+    const prefix = isGold ? "金色" : "紫色";
+    const color = isGold ? "#ffd879" : "#ca9bff";
     if (stat === "hp") {
-      const gain = rarity === "gold" ? 120 : 80;
-      state.player.maxHp += gain;
-      state.player.hp = Math.min(state.player.maxHp, state.player.hp + Math.ceil(gain * 1.2));
-      showTempText((rarity === "gold" ? "金色" : "紫色") + "掉落: 生命+" + gain, rarity === "gold" ? "#ffd879" : "#ca9bff");
-      return;
+      const gain = isGold ? 120 : 80;
+      return {
+        key: "elite_hp_" + rarity,
+        label: prefix + "生命",
+        text: "+" + gain + " 生命",
+        color: color,
+        apply: function (s) {
+          s.player.maxHp += gain;
+          s.player.hp = Math.min(s.player.maxHp, s.player.hp + Math.ceil(gain * 1.2));
+        }
+      };
     }
     if (stat === "fire") {
-      const mul = rarity === "gold" ? 1.38 : 1.28;
-      state.stats.fireRate *= mul;
-      showTempText((rarity === "gold" ? "金色" : "紫色") + "掉落: 射速+" + Math.round((mul - 1) * 100) + "%", rarity === "gold" ? "#ffd879" : "#ca9bff");
-      return;
+      const mul = isGold ? 1.38 : 1.28;
+      return {
+        key: "elite_fire_" + rarity,
+        label: prefix + "射速",
+        text: "射速 +" + Math.round((mul - 1) * 100) + "%",
+        color: color,
+        apply: function (s) { s.stats.fireRate *= mul; }
+      };
     }
     if (stat === "damage") {
-      const mul = rarity === "gold" ? 1.5 : 1.35;
-      state.stats.damage *= mul;
-      showTempText((rarity === "gold" ? "金色" : "紫色") + "掉落: 伤害+" + Math.round((mul - 1) * 100) + "%", rarity === "gold" ? "#ffd879" : "#ca9bff");
-      return;
+      const mul = isGold ? 1.5 : 1.35;
+      return {
+        key: "elite_dmg_" + rarity,
+        label: prefix + "伤害",
+        text: "伤害 +" + Math.round((mul - 1) * 100) + "%",
+        color: color,
+        apply: function (s) { s.stats.damage *= mul; }
+      };
     }
-    const add = rarity === "gold" ? 2 : 1;
-    state.stats.bulletCount = Math.min(7, state.stats.bulletCount + add);
-    showTempText((rarity === "gold" ? "金色" : "紫色") + "掉落: 子弹+" + add, rarity === "gold" ? "#ffd879" : "#ca9bff");
+    const add = isGold ? 2 : 1;
+    return {
+      key: "elite_cnt_" + rarity,
+      label: prefix + "弹量",
+      text: "子弹 +" + add,
+      color: color,
+      apply: function (s) { s.stats.bulletCount = Math.min(7, s.stats.bulletCount + add); }
+    };
+  }
+
+  function spawnEliteDropGate(enemy) {
+    const opts = shuffle([makeEliteDropOption("purple"), makeEliteDropOption("gold")]);
+    const y = Math.max(90, enemy.y - 120);
+    state.statGates.push({
+      marker: "elite_" + Date.now(),
+      y: y,
+      speed: LEVELS[state.levelIndex].scrollSpeed * 0.68,
+      left: opts[0],
+      right: opts[1],
+      chosen: false,
+      radius: 28,
+      eliteDrop: true
+    });
+    showTempText("精英掉落: 紫/金二选一", "#e6b5ff");
   }
 
   function onEnemyKilled(enemy) {
@@ -929,7 +1005,7 @@
       state.score += 58;
       explode(enemy.x, enemy.y, "#d39aff");
       pulseEdgeGlow("#dca6ff", 0.35);
-      applyEliteDropReward();
+      spawnEliteDropGate(enemy);
     } else {
       explode(enemy.x, enemy.y, "#6fc7ff");
     }
@@ -1278,8 +1354,8 @@
       const mid = (laneL + laneR) * 0.5;
       const lx = (laneL + mid) * 0.5;
       const rx = (laneR + mid) * 0.5;
-      drawGateCard(lx, g.y, g.left.label, g.left.text, "#5ef3ba");
-      drawGateCard(rx, g.y, g.right.label, g.right.text, "#8dc9ff");
+      drawGateCard(lx, g.y, g.left.label, g.left.text, g.left.color || "#5ef3ba");
+      drawGateCard(rx, g.y, g.right.label, g.right.text, g.right.color || "#8dc9ff");
     }
   }
 
@@ -1542,6 +1618,32 @@
         ctx.beginPath();
         ctx.moveTo(l.x, 0);
         ctx.lineTo(l.x, state.height);
+        ctx.stroke();
+      }
+    }
+
+    for (const z of state.bombZones) {
+      if (z.warn > 0) {
+        const t = 1 - clamp(z.warn / 0.95, 0, 1);
+        ctx.strokeStyle = "rgba(255,88,88," + (0.35 + t * 0.45) + ")";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(z.x, z.y, z.radius, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.fillStyle = "rgba(255,56,56," + (0.08 + t * 0.12) + ")";
+        ctx.beginPath();
+        ctx.arc(z.x, z.y, z.radius * 0.98, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (z.active > 0) {
+        const a = clamp(z.active / 0.22, 0, 1);
+        ctx.fillStyle = "rgba(255,36,36," + (0.45 * a) + ")";
+        ctx.beginPath();
+        ctx.arc(z.x, z.y, z.radius * (1.05 + (1 - a) * 0.15), 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = "rgba(255,214,214," + (0.7 * a) + ")";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(z.x, z.y, z.radius * 0.65, 0, Math.PI * 2);
         ctx.stroke();
       }
     }
