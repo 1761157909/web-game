@@ -1,0 +1,66 @@
+﻿<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
+  <title>霓虹突袭</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <div id="game-root">
+    <canvas id="game-canvas" aria-label="Neon Runner Game"></canvas>
+
+    <div id="boss-hud" class="boss-hud hidden">
+      <div class="boss-label">Boss生命</div>
+      <div class="boss-bar"><div id="boss-hp-fill" class="fill"></div></div>
+    </div>
+
+    <div id="boss-alert" class="boss-alert hidden">危险警报：Boss 狂暴</div>
+
+    <div id="boss-intro" class="boss-intro hidden">
+      <div id="boss-avatar" class="boss-avatar"></div>
+      <div class="boss-intro-text">
+        <div id="boss-name" class="boss-name">Boss</div>
+        <div id="boss-line" class="boss-line">你已进入禁区。</div>
+      </div>
+    </div>
+
+    <div class="bottom-hud">
+      <div class="num-card">关卡 <span id="level-text">1</span>/5</div>
+      <div class="num-card">分数 <span id="score-text">0</span></div>
+      <div class="num-card hp">生命 <span id="hp-text">100</span></div>
+      <div class="num-card weapon">武器 <span id="weapon-text">速射机枪</span></div>
+    </div>
+
+    <div class="skill-ui">
+      <button id="skill-btn" type="button" aria-label="释放技能">
+        <span class="skill-title">武器技能</span>
+        <span id="skill-cd" class="skill-cd">READY</span>
+      </button>
+    </div>
+
+    <div id="overlay" class="overlay">
+      <h1 id="overlay-title">霓虹突袭</h1>
+      <p id="overlay-desc">后方跟随视角，触摸拖动移动。路上通过二选一强化并击败每关 Boss。</p>
+      <button id="action-btn">开始游戏</button>
+
+      <div id="choice-panel" class="choice-panel hidden">
+        <button class="choice-btn" data-choice="0" type="button">
+          <span class="choice-name">武器A</span>
+          <span class="choice-desc">说明</span>
+        </button>
+        <button class="choice-btn" data-choice="1" type="button">
+          <span class="choice-name">武器B</span>
+          <span class="choice-desc">说明</span>
+        </button>
+        <button class="choice-btn" data-choice="2" type="button">
+          <span class="choice-name">武器C</span>
+          <span class="choice-desc">说明</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="./game.js"></script>
+</body>
+</html>
