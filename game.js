@@ -33,8 +33,8 @@
     { level: 1, distanceToBoss: 3200, scrollSpeed: 350, enemySpeed: 230, spawnEvery: 0.65, enemyHp: 16, enemyDmg: 12, bulletPower: 8, boss: { hp: 1500, shield: 850, speed: 86, fireEvery: 0.98, bulletSpeed: 280, crashDmg: 24, pattern: "spread" } },
     { level: 2, distanceToBoss: 3900, scrollSpeed: 410, enemySpeed: 280, spawnEvery: 0.54, enemyHp: 22, enemyDmg: 15, bulletPower: 9, boss: { hp: 2100, shield: 1200, speed: 102, fireEvery: 0.84, bulletSpeed: 350, crashDmg: 28, pattern: "tracking" } },
     { level: 3, distanceToBoss: 4600, scrollSpeed: 470, enemySpeed: 330, spawnEvery: 0.45, enemyHp: 30, enemyDmg: 18, bulletPower: 10, boss: { hp: 2800, shield: 1650, speed: 120, fireEvery: 0.9, bulletSpeed: 420, crashDmg: 34, pattern: "column" } },
-    { level: 4, distanceToBoss: 5300, scrollSpeed: 520, enemySpeed: 370, spawnEvery: 0.38, enemyHp: 38, enemyDmg: 22, bulletPower: 12, boss: { hp: 3600, shield: 2200, speed: 140, fireEvery: 0.63, bulletSpeed: 490, crashDmg: 42, pattern: "scatterburst" } },
-    { level: 5, distanceToBoss: 6100, scrollSpeed: 575, enemySpeed: 410, spawnEvery: 0.32, enemyHp: 46, enemyDmg: 27, bulletPower: 14, boss: { hp: 4700, shield: 2900, speed: 164, fireEvery: 0.54, bulletSpeed: 560, crashDmg: 50, pattern: "hybrid" } }
+    { level: 4, distanceToBoss: 5300, scrollSpeed: 520, enemySpeed: 370, spawnEvery: 0.38, enemyHp: 38, enemyDmg: 22, bulletPower: 12, boss: { hp: 9200, shield: 7600, speed: 146, fireEvery: 0.58, bulletSpeed: 540, crashDmg: 52, pattern: "scatterburst" } },
+    { level: 5, distanceToBoss: 6100, scrollSpeed: 575, enemySpeed: 410, spawnEvery: 0.32, enemyHp: 46, enemyDmg: 27, bulletPower: 14, boss: { hp: 18800, shield: 16400, speed: 172, fireEvery: 0.48, bulletSpeed: 620, crashDmg: 62, pattern: "hybrid" } }
   ];
 
   const BOSS_PROFILES = [
@@ -212,7 +212,8 @@
     const y = -42;
     const x = randomRange(laneLeftAtY(120) + 24, laneRightAtY(120) - 24);
     const big = Math.random() > 0.82;
-    state.enemies.push({ x, y, radius: big ? 22 : 15, hp: big ? lvl.enemyHp * 1.9 : lvl.enemyHp, speed: lvl.enemySpeed * (big ? 0.82 : 1 + Math.random() * 0.12), dmg: big ? lvl.enemyDmg * 1.4 : lvl.enemyDmg });
+    const hp = big ? lvl.enemyHp * 1.9 : lvl.enemyHp;
+    state.enemies.push({ x, y, radius: big ? 22 : 15, hp: hp, maxHp: hp, speed: lvl.enemySpeed * (big ? 0.82 : 1 + Math.random() * 0.12), dmg: big ? lvl.enemyDmg * 1.4 : lvl.enemyDmg });
   }
 
   function spawnEliteEnemy() {
@@ -225,6 +226,7 @@
       elite: true,
       radius: 24,
       hp: lvl.enemyHp * 5.8,
+      maxHp: lvl.enemyHp * 5.8,
       speed: lvl.enemySpeed * 0.8,
       dmg: lvl.enemyDmg * 2
     });
@@ -1401,6 +1403,21 @@
         ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.arc(0, 0, 28 + Math.sin(performance.now() * 0.02) * 2, 0, Math.PI * 2);
+        ctx.stroke();
+
+        const hpRatio = clamp((e.hp || 0) / Math.max(1, e.maxHp || e.hp || 1), 0, 1);
+        const bw = 44;
+        const bh = 5;
+        const by = -34;
+        ctx.fillStyle = "rgba(12, 15, 28, 0.8)";
+        roundRect(ctx, -bw * 0.5, by, bw, bh, 3);
+        ctx.fill();
+        ctx.fillStyle = hpRatio > 0.4 ? "#d58dff" : "#ff7e95";
+        roundRect(ctx, -bw * 0.5 + 1, by + 1, (bw - 2) * hpRatio, bh - 2, 2);
+        ctx.fill();
+        ctx.strokeStyle = "rgba(255, 235, 255, 0.65)";
+        ctx.lineWidth = 1;
+        roundRect(ctx, -bw * 0.5, by, bw, bh, 3);
         ctx.stroke();
       }
       ctx.restore();
