@@ -32,7 +32,7 @@
   const LEVELS = [
     { level: 1, distanceToBoss: 3200, scrollSpeed: 350, enemySpeed: 230, spawnEvery: 0.65, enemyHp: 16, enemyDmg: 12, bulletPower: 8, boss: { hp: 1500, shield: 850, speed: 86, fireEvery: 0.98, bulletSpeed: 280, crashDmg: 24, pattern: "spread" } },
     { level: 2, distanceToBoss: 3900, scrollSpeed: 410, enemySpeed: 280, spawnEvery: 0.54, enemyHp: 22, enemyDmg: 15, bulletPower: 9, boss: { hp: 2100, shield: 1200, speed: 102, fireEvery: 0.84, bulletSpeed: 350, crashDmg: 28, pattern: "tracking" } },
-    { level: 3, distanceToBoss: 4600, scrollSpeed: 470, enemySpeed: 330, spawnEvery: 0.45, enemyHp: 30, enemyDmg: 18, bulletPower: 10, boss: { hp: 2800, shield: 1650, speed: 120, fireEvery: 0.72, bulletSpeed: 420, crashDmg: 34, pattern: "column" } },
+    { level: 3, distanceToBoss: 4600, scrollSpeed: 470, enemySpeed: 330, spawnEvery: 0.45, enemyHp: 30, enemyDmg: 18, bulletPower: 10, boss: { hp: 2800, shield: 1650, speed: 120, fireEvery: 0.9, bulletSpeed: 420, crashDmg: 34, pattern: "column" } },
     { level: 4, distanceToBoss: 5300, scrollSpeed: 520, enemySpeed: 370, spawnEvery: 0.38, enemyHp: 38, enemyDmg: 22, bulletPower: 12, boss: { hp: 3600, shield: 2200, speed: 140, fireEvery: 0.63, bulletSpeed: 490, crashDmg: 42, pattern: "scatterburst" } },
     { level: 5, distanceToBoss: 6100, scrollSpeed: 575, enemySpeed: 410, spawnEvery: 0.32, enemyHp: 46, enemyDmg: 27, bulletPower: 14, boss: { hp: 4700, shield: 2900, speed: 164, fireEvery: 0.54, bulletSpeed: 560, crashDmg: 50, pattern: "hybrid" } }
   ];
@@ -73,6 +73,7 @@
     bossAlertTimer: 0, bossIntroTimer: 0,
     stars: [], enemies: [], bullets: [], enemyBullets: [], enemyLasers: [], particles: [], statGates: [], rayChains: [],
     statGateSpawned: [false, false, false],
+    eliteSpawned: false,
     boss: null, bossDefeated: false,
     touchActive: false, pointerX: 0, pointerY: 0,
     rewardChoices: [], unlockedWeapons: new Set(["mg"]),
@@ -136,6 +137,7 @@
     state.rayChains.length = 0;
     state.statGates.length = 0;
     state.statGateSpawned = [false, false, false];
+    state.eliteSpawned = false;
     state.shieldTimer = 0;
     state.shockwaveActive = false;
     state.shockwaveRadius = 0;
@@ -211,6 +213,23 @@
     const x = randomRange(laneLeftAtY(120) + 24, laneRightAtY(120) - 24);
     const big = Math.random() > 0.82;
     state.enemies.push({ x, y, radius: big ? 22 : 15, hp: big ? lvl.enemyHp * 1.9 : lvl.enemyHp, speed: lvl.enemySpeed * (big ? 0.82 : 1 + Math.random() * 0.12), dmg: big ? lvl.enemyDmg * 1.4 : lvl.enemyDmg });
+  }
+
+  function spawnEliteEnemy() {
+    if (state.eliteSpawned || state.boss) return;
+    const lvl = LEVELS[state.levelIndex];
+    const y = -56;
+    const x = randomRange(laneLeftAtY(120) + 32, laneRightAtY(120) - 32);
+    state.enemies.push({
+      x, y,
+      elite: true,
+      radius: 24,
+      hp: lvl.enemyHp * 5.8,
+      speed: lvl.enemySpeed * 0.8,
+      dmg: lvl.enemyDmg * 2
+    });
+    state.eliteSpawned = true;
+    showTempText("精英机甲出现", "#d8a9ff");
   }
 
   function maybeSpawnStatGate() {
@@ -295,34 +314,41 @@
       state.sfx.lastShotAt = performance.now();
     }
   }
+  function fireBossPattern(pattern, b, aimed, forceEnraged) {
+    const enraged = forceEnraged || b.enraged;
+    if (pattern === "spread") {
+      const fan = enraged ? [-0.5, -0.34, -0.2, -0.08, 0.08, 0.2, 0.34, 0.5] : [-0.35, -0.18, 0, 0.18, 0.35];
+      for (const a of fan) addEnemyBulletAngle(b.x, b.y + 34, aimed + a, b.bulletSpeed, b.bulletDmg);
+      return true;
+    }
+    if (pattern === "tracking") {
+      const count = enraged ? 4 : 2;
+      for (let i = 0; i < count; i++) {
+        const a = aimed + (i - (count - 1) / 2) * 0.14;
+        addEnemyBulletAngle(b.x, b.y + 34, a, b.bulletSpeed * 0.86, b.bulletDmg * 0.95, "homing");
+      }
+      return true;
+    }
+    if (pattern === "column") {
+      spawnEnemyLaserColumns(enraged ? 4 : 3, b.bulletDmg * 1.15);
+      return true;
+    }
+    if (pattern === "scatterburst") {
+      const burst = enraged ? [-0.24, -0.12, 0, 0.12, 0.24] : [-0.16, 0, 0.16];
+      for (const x of burst) addEnemyBulletAngle(b.x, b.y + 34, aimed + x, b.bulletSpeed * 1.12, b.bulletDmg, "splitter");
+      for (const s of [-0.8, 0.8]) addEnemyBulletAngle(b.x, b.y + 34, aimed + s, b.bulletSpeed * 0.9, b.bulletDmg * 0.9);
+      return true;
+    }
+    return false;
+  }
+
   function shootBoss() {
     if (!state.boss) return;
     const b = state.boss;
     const aimed = Math.atan2(state.player.x - b.x, state.player.y - b.y);
 
-    if (b.pattern === "spread") {
-      const fan = b.enraged ? [-0.5, -0.34, -0.2, -0.08, 0.08, 0.2, 0.34, 0.5] : [-0.35, -0.18, 0, 0.18, 0.35];
-      for (const a of fan) addEnemyBulletAngle(b.x, b.y + 34, aimed + a, b.bulletSpeed, b.bulletDmg);
-      return;
-    }
-    if (b.pattern === "tracking") {
-      const count = b.enraged ? 4 : 2;
-      for (let i = 0; i < count; i++) {
-        const a = aimed + (i - (count - 1) / 2) * 0.14;
-        addEnemyBulletAngle(b.x, b.y + 34, a, b.bulletSpeed * 0.86, b.bulletDmg * 0.95, "homing");
-      }
-      return;
-    }
-    if (b.pattern === "column") {
-      spawnEnemyLaserColumns(b.enraged ? 4 : 3, b.bulletDmg * 1.15);
-      return;
-    }
-    if (b.pattern === "scatterburst") {
-      const burst = b.enraged ? [-0.24, -0.12, 0, 0.12, 0.24] : [-0.16, 0, 0.16];
-      for (const x of burst) addEnemyBulletAngle(b.x, b.y + 34, aimed + x, b.bulletSpeed * 1.12, b.bulletDmg);
-      for (const s of [-0.8, 0.8]) addEnemyBulletAngle(b.x, b.y + 34, aimed + s, b.bulletSpeed * 0.9, b.bulletDmg * 0.9);
-      return;
-    }
+    if (fireBossPattern(b.pattern, b, aimed, false)) return;
+
     if (b.pattern === "hybrid") {
       const amp = b.ultimateEnraged ? 0.95 : b.enraged ? 0.7 : 0.5;
       const center = aimed + Math.sin(b.shotStep * 0.6) * amp;
@@ -334,6 +360,13 @@
       if (b.ultimateEnraged) {
         const spin = b.shotStep * 0.28;
         for (let i = 0; i < 6; i++) addEnemyBulletAngle(b.x, b.y + 34, spin + (Math.PI * 2 * i) / 6, b.bulletSpeed * 0.92, b.bulletDmg * 0.9);
+        if (b.shotStep % 2 === 0) {
+          const pool = ["spread", "tracking", "column", "scatterburst"];
+          const copy = pool[Math.floor(Math.random() * pool.length)];
+          fireBossPattern(copy, b, aimed, true);
+          const nameMap = { spread: "散射", tracking: "追踪", column: "竖排激光", scatterburst: "分裂散弹" };
+          showTempText("终极狂暴: " + (nameMap[copy] || copy), "#ffb7b7");
+        }
       }
       b.shotStep += 1;
       return;
@@ -351,7 +384,8 @@
       type: type || "normal",
       homingTurn: 2.5,
       age: 0,
-      maxAge: isHoming ? 2.4 : 6
+      maxAge: isHoming ? 2.4 : 6,
+      splitDone: false
     });
   }
 
@@ -425,6 +459,9 @@
       state.spawnClock = 0;
       spawnEnemy();
     }
+    if (!state.boss && !state.eliteSpawned && state.levelDistance >= lvl.distanceToBoss * 0.6 && state.levelDistance < lvl.distanceToBoss * 0.92) {
+      spawnEliteEnemy();
+    }
 
     maybeSpawnStatGate();
     if (!state.boss && state.levelDistance >= lvl.distanceToBoss) spawnBoss();
@@ -489,6 +526,16 @@
         const speed = Math.hypot(b.vx, b.vy);
         b.vx = Math.sin(next) * speed;
         b.vy = Math.cos(next) * speed;
+      }
+      if (b.type === "splitter" && !b.splitDone && b.age >= 0.42) {
+        b.splitDone = true;
+        const baseAngle = Math.atan2(b.vx, b.vy);
+        const speed = Math.hypot(b.vx, b.vy) * 1.04;
+        addEnemyBulletAngle(b.x, b.y, baseAngle - 0.34, speed, b.dmg * 0.72, "normal");
+        addEnemyBulletAngle(b.x, b.y, baseAngle + 0.34, speed, b.dmg * 0.72, "normal");
+        spawnSpark(b.x, b.y, "#ffb8c7");
+        state.enemyBullets.splice(i, 1);
+        continue;
       }
       b.x += b.vx * dt;
       b.y += b.vy * dt;
@@ -846,10 +893,44 @@
     }
   }
 
+  function applyEliteDropReward() {
+    const rarity = Math.random() < 0.72 ? "purple" : "gold";
+    const stat = CHOICE_STATS[Math.floor(Math.random() * CHOICE_STATS.length)].key;
+    if (stat === "hp") {
+      const gain = rarity === "gold" ? 120 : 80;
+      state.player.maxHp += gain;
+      state.player.hp = Math.min(state.player.maxHp, state.player.hp + Math.ceil(gain * 1.2));
+      showTempText((rarity === "gold" ? "金色" : "紫色") + "掉落: 生命+" + gain, rarity === "gold" ? "#ffd879" : "#ca9bff");
+      return;
+    }
+    if (stat === "fire") {
+      const mul = rarity === "gold" ? 1.38 : 1.28;
+      state.stats.fireRate *= mul;
+      showTempText((rarity === "gold" ? "金色" : "紫色") + "掉落: 射速+" + Math.round((mul - 1) * 100) + "%", rarity === "gold" ? "#ffd879" : "#ca9bff");
+      return;
+    }
+    if (stat === "damage") {
+      const mul = rarity === "gold" ? 1.5 : 1.35;
+      state.stats.damage *= mul;
+      showTempText((rarity === "gold" ? "金色" : "紫色") + "掉落: 伤害+" + Math.round((mul - 1) * 100) + "%", rarity === "gold" ? "#ffd879" : "#ca9bff");
+      return;
+    }
+    const add = rarity === "gold" ? 2 : 1;
+    state.stats.bulletCount = Math.min(7, state.stats.bulletCount + add);
+    showTempText((rarity === "gold" ? "金色" : "紫色") + "掉落: 子弹+" + add, rarity === "gold" ? "#ffd879" : "#ca9bff");
+  }
+
   function onEnemyKilled(enemy) {
     state.score += 12;
     state.player.hp = Math.min(state.player.maxHp, state.player.hp + state.player.killHeal);
-    explode(enemy.x, enemy.y, "#6fc7ff");
+    if (enemy && enemy.elite) {
+      state.score += 58;
+      explode(enemy.x, enemy.y, "#d39aff");
+      pulseEdgeGlow("#dca6ff", 0.35);
+      applyEliteDropReward();
+    } else {
+      explode(enemy.x, enemy.y, "#6fc7ff");
+    }
     sfxExplode();
     triggerShake(4);
   }
@@ -962,6 +1043,10 @@
         syncBossPhase();
         hit = true;
         if (state.boss.hp <= 0) {
+          const bossClearHpBonus = (state.levelIndex + 1) * 100;
+          state.player.maxHp += bossClearHpBonus;
+          state.player.hp = Math.min(state.player.maxHp, state.player.hp + bossClearHpBonus);
+          showTempText("击破Boss 生命+" + bossClearHpBonus, "#9effb8");
           explode(state.boss.x, state.boss.y, "#ff6688");
           state.boss = null;
           state.score += 260;
@@ -1286,26 +1371,38 @@
     for (const e of state.enemies) {
       ctx.save();
       ctx.translate(e.x, e.y);
-      const g = ctx.createLinearGradient(-18, -18, 18, 18);
-      g.addColorStop(0, "#cfd6e2");
-      g.addColorStop(1, "#5e6f83");
+      const g = ctx.createLinearGradient(-22, -22, 22, 22);
+      if (e.elite) {
+        g.addColorStop(0, "#f6ddff");
+        g.addColorStop(1, "#7a4ca8");
+      } else {
+        g.addColorStop(0, "#cfd6e2");
+        g.addColorStop(1, "#5e6f83");
+      }
       ctx.fillStyle = g;
       ctx.beginPath();
-      ctx.moveTo(0, 18);
-      ctx.lineTo(14, 8);
-      ctx.lineTo(16, -10);
-      ctx.lineTo(0, -18);
-      ctx.lineTo(-16, -10);
-      ctx.lineTo(-14, 8);
+      ctx.moveTo(0, e.elite ? 24 : 18);
+      ctx.lineTo(e.elite ? 18 : 14, e.elite ? 10 : 8);
+      ctx.lineTo(e.elite ? 20 : 16, e.elite ? -12 : -10);
+      ctx.lineTo(0, e.elite ? -22 : -18);
+      ctx.lineTo(e.elite ? -20 : -16, e.elite ? -12 : -10);
+      ctx.lineTo(e.elite ? -18 : -14, e.elite ? 10 : 8);
       ctx.closePath();
       ctx.fill();
 
       // Enemy mecha visor/core
-      ctx.fillStyle = "#ff6d8f";
+      ctx.fillStyle = e.elite ? "#ffd777" : "#ff6d8f";
       ctx.fillRect(-5, -8, 10, 5);
-      ctx.fillStyle = "#8aa5bf";
+      ctx.fillStyle = e.elite ? "#b58ad9" : "#8aa5bf";
       ctx.fillRect(-10, 10, 7, 6);
       ctx.fillRect(3, 10, 7, 6);
+      if (e.elite) {
+        ctx.strokeStyle = "rgba(246, 199, 255, 0.9)";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(0, 0, 28 + Math.sin(performance.now() * 0.02) * 2, 0, Math.PI * 2);
+        ctx.stroke();
+      }
       ctx.restore();
     }
   }
