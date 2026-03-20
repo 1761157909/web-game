@@ -46,9 +46,9 @@
   ];
 
   const WEAPONS = {
-    mg: { id: "mg", name: "速射机枪", desc: "高射速，稳定压制。", fireInterval: 0.11, baseDamage: 9, bulletSpeed: 780, spread: 0.05, skillName: "弹幕风暴", skillDesc: "5秒内射速+50%，并清除敌方子弹", skillCooldown: 9.5 },
-    laser: { id: "laser", name: "激光炮", desc: "高伤能束，破盾特化。", fireInterval: 0.19, baseDamage: 60, bulletSpeed: 960, spread: 0.01, skillName: "贯穿天光", skillDesc: "发射巨型贯穿光束并造成重创", skillCooldown: 10.8 },
-    ray: { id: "ray", name: "镭射枪", desc: "中频精准射线。", fireInterval: 0.16, baseDamage: 14, bulletSpeed: 860, spread: 0.018, skillName: "电弧锁链", skillDesc: "对全屏敌人施加连锁电弧", skillCooldown: 9.8 }
+    mg: { id: "mg", name: "速射机枪", desc: "高射速，稳定压制。", fireInterval: 0.11, baseDamage: 9, bulletSpeed: 780, spread: 0.05, skillName: "弹幕风暴", skillDesc: "5秒内射速+50%，并清除敌方子弹", skillCooldown: 10.5 },
+    laser: { id: "laser", name: "激光炮", desc: "高伤能束，破盾特化。", fireInterval: 0.19, baseDamage: 60, bulletSpeed: 960, spread: 0.01, skillName: "贯穿天光", skillDesc: "发射巨型贯穿光束并造成重创", skillCooldown: 9.8 },
+    ray: { id: "ray", name: "镭射枪", desc: "中频精准射线。", fireInterval: 0.16, baseDamage: 14, bulletSpeed: 860, spread: 0.018, skillName: "电弧锁链", skillDesc: "对全屏敌人施加连锁电弧", skillCooldown: 10.8 }
   };
 
   const CHOICE_STATS = [
